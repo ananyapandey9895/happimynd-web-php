@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -106,6 +107,128 @@ class UserProductService
             $counts[self::NONE] = self::applyFilter(User::query(), self::NONE)->count();
             return $counts;
         });
+    }
+
+    /**
+     * Reads ?from_date=YYYY-MM-DD&to_date=YYYY-MM-DD (either may be empty).
+     * Returns [Carbon|null $from (start of day), Carbon|null $to (end of day)], swapped if given backwards.
+     */
+    public static function dateRange($request): array
+    {
+        $from = self::parseDate($request->input('from_date'));
+        $to   = self::parseDate($request->input('to_date'));
+
+        if ($from && $to && $from->gt($to)) {
+            [$from, $to] = [$to, $from];
+        }
+
+        return [
+            $from ? $from->copy()->startOfDay() : null,
+            $to ? $to->copy()->endOfDay() : null,
+        ];
+    }
+
+    private static function parseDate($value)
+    {
+        if (!is_string($value) || $value === '') {
+            return null;
+        }
+        try {
+            return Carbon::createFromFormat('Y-m-d', $value)->startOfDay();
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Restrict a User query to a date range.
+     *  - No product / "none": by registration date (users.created_at).
+     *  - A product: by the date the user STARTED that product (their first usage record),
+     *    so a range shows the users that were newly added to that service in it.
+     */
+    public static function applyDateRange($query, $product, $from, $to)
+    {
+        if (!$from && !$to) {
+            return $query;
+        }
+
+        if ($product && isset(self::PRODUCTS[$product])) {
+            return self::startedProductBetween($query, self::PRODUCTS[$product]['relation'], $from, $to);
+        }
+
+        if ($from) {
+            $query->where('users.created_at', '>=', $from);
+        }
+        if ($to) {
+            $query->where('users.created_at', '<=', $to);
+        }
+        return $query;
+    }
+
+    /**
+     * Users whose first record in $relation falls inside [$from, $to].
+     */
+    public static function startedProductBetween($query, $relation, $from, $to)
+    {
+        $query->whereHas($relation, function ($q) use ($from, $to) {
+            $column = $q->getModel()->qualifyColumn('created_at');
+            if ($from) {
+                $q->where($column, '>=', $from);
+            }
+            if ($to) {
+                $q->where($column, '<=', $to);
+            }
+        });
+        if ($from) {
+            // used it before the range => not a new user of this product in the range
+            $query->whereDoesntHave($relation, function ($q) use ($from) {
+                $q->where($q->getModel()->qualifyColumn('created_at'), '<', $from);
+            });
+        }
+        return $query;
+    }
+
+    /**
+     * New users in the last 24 hours / 7 days, overall (registrations) and per product
+     * (users who started the product). Test users excluded, like the other dashboard tiles.
+     * ['overall' => ['24h' => n, '7d' => n], 'products' => [key => ['label', '24h', '7d']]]
+     */
+    public static function newUserStats(): array
+    {
+        return Cache::remember(self::COUNT_CACHE_KEY . '.new_users', self::COUNT_CACHE_TTL, function () {
+            $now = Carbon::now();
+            $windows = [
+                '24h' => $now->copy()->subDay(),
+                '7d'  => $now->copy()->subDays(7),
+            ];
+
+            $stats = ['overall' => [], 'products' => []];
+            foreach ($windows as $name => $since) {
+                $stats['overall'][$name] = User::RemoveTestUser()->where('users.created_at', '>=', $since)->count();
+            }
+            foreach (self::PRODUCTS as $key => $config) {
+                $stats['products'][$key] = ['label' => $config['label']];
+                foreach ($windows as $name => $since) {
+                    $stats['products'][$key][$name] = self::startedProductBetween(
+                        User::RemoveTestUser(), $config['relation'], $since, null
+                    )->count();
+                }
+            }
+            return $stats;
+        });
+    }
+
+    /**
+     * New users in a custom range (not cached): overall registrations + users who started each product.
+     * ['overall' => n, key => n, ...]
+     */
+    public static function newUserCountsBetween($from, $to): array
+    {
+        $counts = ['overall' => self::applyDateRange(User::RemoveTestUser(), null, $from, $to)->count()];
+        foreach (self::PRODUCTS as $key => $config) {
+            $counts[$key] = self::startedProductBetween(User::RemoveTestUser(), $config['relation'], $from, $to)->count();
+        }
+        return $counts;
     }
 
     /**

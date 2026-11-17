@@ -74,14 +74,28 @@
                       <h3>B2B codes validity over</h3>
                     </div>
                   </div>
+                  <div class="animated flipInY col-lg-3 col-md-3 col-sm-6  ">
+                    <div class="tile-stats">
+                      <div class="count">{{ $newUserStats['overall']['24h'] ?? 0 }}</div>
+                      <h3>New users (last 24 hours)</h3>
+                    </div>
+                  </div>
+                  <div class="animated flipInY col-lg-3 col-md-3 col-sm-6  ">
+                    <div class="tile-stats">
+                      <div class="count">{{ $newUserStats['overall']['7d'] ?? 0 }}</div>
+                      <h3>New users (last 7 days)</h3>
+                    </div>
+                  </div>
                 </div>
+
+                <?php $canDownloadReports = auth('admin')->user()->hasAnyRole(['admin', 'super-admin']); ?>
 
                 {{-- Users classified by the products they have started --}}
                 <div class="row">
                   <div class="col-md-12 col-sm-12 ">
                     <div class="x_panel">
                       <div class="x_title">
-                        <h2>Product usage <small>users who started each product (test users excluded)</small></h2>
+                        <h2>Product usage <small>users who started each product; "new" = started it in the period (test users excluded, refreshes every 10 min)</small></h2>
                         <div class="clearfix"></div>
                       </div>
                       <div class="x_content">
@@ -92,6 +106,8 @@
                               <th class="text-right">B2C</th>
                               <th class="text-right">B2B</th>
                               <th class="text-right">Total</th>
+                              <th class="text-right">New (last 24 hours)</th>
+                              <th class="text-right">New (last 7 days)</th>
                               <th></th>
                             </tr>
                           </thead>
@@ -102,11 +118,19 @@
                               <td class="fs15 fw700 text-right">{{ $row['b2c'] }}</td>
                               <td class="fs15 fw700 text-right">{{ $row['b2b'] }}</td>
                               <td class="fs15 fw700 text-right">{{ $row['total'] }}</td>
+                              <td class="fs15 fw700 text-right">{{ $newUserStats['products'][$key]['24h'] ?? 0 }}</td>
+                              <td class="fs15 fw700 text-right">{{ $newUserStats['products'][$key]['7d'] ?? 0 }}</td>
                               <td>
                                 @if($key === 'happilearn')
                                 <a href="{{ route('admin.happilearnUserList') }}">View users</a>
                                 @else
                                 <a href="{{ route('admin.customerListView', ['product' => $key]) }}">View users</a>
+                                @endif
+                                @if($canDownloadReports)
+                                &nbsp;|&nbsp;
+                                <a href="{{ route('admin.downloadUserListXL', ['product' => $key, 'format' => 'xlsx']) }}">Excel</a>
+                                &nbsp;/&nbsp;
+                                <a href="{{ route('admin.downloadUserListXL', ['product' => $key, 'format' => 'csv']) }}">CSV</a>
                                 @endif
                               </td>
                             </tr>
@@ -117,6 +141,53 @@
                     </div>
                   </div>
                 </div>
+
+                @if($canDownloadReports)
+                {{-- Download reports: overall statistics, or one service's user data, for an optional date range --}}
+                <div class="row">
+                  <div class="col-md-12 col-sm-12 ">
+                    <div class="x_panel">
+                      <div class="x_title">
+                        <h2>Download reports</h2>
+                        <div class="clearfix"></div>
+                      </div>
+                      <div class="x_content">
+                        <form method="GET" action="{{ route('admin.downloadUserStatistics') }}"
+                              style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px;">
+                          <div>
+                            <label for="report_from_date" style="display:block;">From Date</label>
+                            <input type="date" id="report_from_date" name="from_date" class="form-control" max="{{ now()->format('Y-m-d') }}">
+                          </div>
+                          <div>
+                            <label for="report_to_date" style="display:block;">To Date</label>
+                            <input type="date" id="report_to_date" name="to_date" class="form-control" max="{{ now()->format('Y-m-d') }}">
+                          </div>
+                          <div>
+                            <label style="display:block;">Overall user statistics</label>
+                            <button type="submit" name="format" value="xlsx" class="btn btn-success" style="margin:0;">Excel</button>
+                            <button type="submit" name="format" value="csv" class="btn btn-default" style="margin:0;">CSV</button>
+                          </div>
+                          <div style="border-left:1px solid #ddd; padding-left:10px;">
+                            <label for="report_product" style="display:block;">User data of</label>
+                            <select id="report_product" name="product" class="form-control" style="display:inline-block; width:auto;">
+                              <option value="">All users</option>
+                              @foreach(\App\Services\UserProductService::PRODUCTS as $productKey => $productConfig)
+                                <option value="{{ $productKey }}">{{ $productConfig['label'] }}</option>
+                              @endforeach
+                            </select>
+                            <button type="submit" formaction="{{ route('admin.downloadUserListXL') }}" name="format" value="xlsx" class="btn btn-success" style="margin:0;">Excel</button>
+                            <button type="submit" formaction="{{ route('admin.downloadUserListXL') }}" name="format" value="csv" class="btn btn-default" style="margin:0;">CSV</button>
+                          </div>
+                        </form>
+                        <p class="text-muted" style="font-size:12px; margin-top:8px;">
+                          Dates are optional. Statistics add a "new users in range" column. For a service, the date range selects users who
+                          started that service in the range; for All users, users who registered in the range.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                @endif
 
 
                 <div class="row">

@@ -41,13 +41,26 @@
             <div class="clearfix"></div>
           </div>
 
-          <form method="GET" action="{{ route('admin.happilearnUserList') }}" class="form-inline" style="margin-bottom:15px;">
-            <input type="text" name="username" class="form-control" placeholder="Search username / nickname" value="{{ request('username') }}" style="margin-right:10px;">
-            <button type="submit" class="btn btn-primary">Search</button>
-            @if(request('username'))
-              <a href="{{ route('admin.happilearnUserList') }}" class="btn btn-default">Clear</a>
-            @endif
+          <form method="GET" action="{{ route('admin.happilearnUserList') }}" style="margin-bottom:5px;">
+            <div class="form-inline" style="margin-bottom:10px;">
+              <input type="text" name="username" class="form-control" placeholder="Search username / nickname" value="{{ request('username') }}" style="margin-right:10px;">
+              <button type="submit" class="btn btn-primary">Search</button>
+              @if(request('username') || $fromDate || $toDate)
+                <a href="{{ route('admin.happilearnUserList') }}" class="btn btn-default">Clear all</a>
+              @endif
+            </div>
+            @if(request('per_page'))<input type="hidden" name="per_page" value="{{ (int)request('per_page') }}">@endif
+            @include('Backend.includes.user_date_filter', [
+              'downloadRoute' => route('admin.happilearnUserDownload'),
+              'clearUrl'      => route('admin.happilearnUserList', array_filter(['username' => request('username')])),
+              'dateHint'      => 'Dates filter on when the user started HappiLEARN (first content opened). The download includes contents opened, views, likes and last viewed.',
+            ])
           </form>
+
+          @if($fromDate || $toDate)
+            <p><strong>{{ $users->total() }}</strong> user(s) started HappiLEARN
+              {{ $fromDate ? 'from ' . $fromDate->format('d M Y') : '' }} {{ $toDate ? 'to ' . $toDate->format('d M Y') : 'to today' }}.</p>
+          @endif
 
           @unless($hasViewCount)
             <p class="alert alert-warning">Repeat views are not being counted yet. Run <code>php artisan migrate</code> to enable view counts.</p>
@@ -64,6 +77,7 @@
                   <th>Contents Opened</th>
                   @if($hasViewCount)<th>Total Views</th>@endif
                   <th>Contents Liked</th>
+                  <th>Started On</th>
                   <th>Last Viewed</th>
                   <th>Action</th>
                 </tr>
@@ -84,11 +98,12 @@
                   <td>{{ $user->contents_viewed_count }}</td>
                   @if($hasViewCount)<td>{{ (int)$user->total_views_count }}</td>@endif
                   <td>{{ $user->contents_liked_count }}</td>
+                  <td>{{ $user->first_viewed_at ? \Carbon\Carbon::parse($user->first_viewed_at)->format('M d,Y h:i a') : '-' }}</td>
                   <td>{{ $user->last_viewed_at ? \Carbon\Carbon::parse($user->last_viewed_at)->format('M d,Y h:i a') : '-' }}</td>
                   <td><a href="{{ route('admin.happilearnUserDetail', $user->id) }}" class="btn btn-primary btn-sm">View Content Used</a></td>
                 </tr>
                 @empty
-                <tr><td colspan="9" style="text-align:center;">No HappiLEARN users found.</td></tr>
+                <tr><td colspan="10"style="text-align:center;">No HappiLEARN users found.</td></tr>
                 @endforelse
               </tbody>
             </table>
