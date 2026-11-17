@@ -6,6 +6,8 @@ use App\Models\User;
 use App\Models\RecentlyViewedHappiLearnContent;
 use App\Models\LikeHappiLearnContent;
 use Illuminate\Support\Facades\Schema;
+use App\Services\UserProductService;
+use App\Exports\UserDataExport;
 use App\Imports\ImportHappiLearnContent;
 use App\Models\UserLanguage;
 use Excel;
@@ -209,6 +211,16 @@ class HappilearnController extends Controller
             });
         }
 
+        // From / To date: users who started HappiLEARN (first content opened) in the range
+        [$fromDate, $toDate] = UserProductService::dateRange($request);
+        UserProductService::applyDateRange($query, 'happilearn', $fromDate, $toDate);
+        $query->withMin('happilearnViews as first_viewed_at', 'created_at');
+
+        $perPage = (int)$perPage;
+        if ($perPage < 1 || $perPage > 1000) {
+            $perPage = 10;
+        }
+
         $users = $query->orderByDesc('last_viewed_at')
             ->orderByDesc('id')
             ->paginate($perPage)
@@ -226,7 +238,29 @@ class HappilearnController extends Controller
         return view('Backend.happilearn.happilearn_user_list')
             ->with('users', $users)
             ->with('summary', $summary)
+            ->with('fromDate', $fromDate)
+            ->with('toDate', $toDate)
             ->with('hasViewCount', $hasViewCount);
+    }
+
+    /**
+     * Download HappiLEARN users (Excel / CSV), optionally only users who started HappiLEARN between From and To date.
+     */
+    public function happiLearnUserDownload(Request $request){
+        if (!auth('admin')->user()->hasAnyRole(['admin', 'super-admin', 'HappiLEARN'])) {
+            return redirect(route('admin.dashboard'));
+        }
+
+        [$fromDate, $toDate] = UserProductService::dateRange($request);
+        [$writerType, $extension] = AdminController::exportFormat($request->get('format'));
+
+        @set_time_limit(300);
+
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new UserDataExport('happilearn', $fromDate, $toDate),
+            UserDataExport::fileName('happilearn', $fromDate, $toDate, $extension),
+            $writerType
+        );
     }
 
     /**
