@@ -103,7 +103,7 @@ class CampaignController extends Controller
         if (auth('user')->check()) {
             return redirect(route('user.dashboard'));
         }
-        $packages = Package::with(['plan' => function ($query) {
+        $packages = Package::visible()->with(['plan' => function ($query) {
             return $query->withMax('offer', 'discount')->with('duration')->orderBy('offer_max_discount', 'ASC');
         }])->get();
         $campaign = Campaign::where('name', $request->input('utm_campaign'))->first();

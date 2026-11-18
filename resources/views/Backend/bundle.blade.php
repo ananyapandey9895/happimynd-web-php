@@ -1,11 +1,16 @@
 <x-backend-layout>
   <x-slot name="title">
-    Bundles Detail
+    Manage Plans
   </x-slot>
   <x-slot name="css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-    <link href="cdn.datatables.net/1.10.20/css/jquery.dataTables.min.css">
     <link href="{{ asset('assets/Backend/css/plugins/dataTables.bootstrap.min.css') }}" rel="stylesheet">
+    <style>
+      .plan-actions form { display:inline; margin:0; }
+      .plan-actions .btn { margin:2px 0; }
+      .plan-hidden-row td { color:#999; }
+      .plan-contents { margin:0; padding-left:16px; }
+    </style>
   </x-slot>
   <x-slot name="js">
       <script src="{{ asset('assets/Backend/js/plugins/jquery.dataTables.min.js') }}"></script>
@@ -18,65 +23,115 @@
     <div class="right_col" role="main">
       <div class="x_content">
         <div class="x_panel">
+          <div class="row" style="margin-bottom:10px;">
+            <div class="col-sm-8">
+              <h4 style="margin-top:5px;">Plans &amp; Bundles</h4>
+              <p class="text-muted font-13">Edit prices, descriptions, validity and bundle contents. Hidden plans cannot be bought, but existing subscribers keep access. HappiTALK prices are managed under Expert Levels.</p>
+            </div>
+            <div class="col-sm-4 text-right">
+              <a href="{{ route('admin.createBundle') }}" class="btn btn-primary"><i class="fa fa-plus"></i> Create Bundle</a>
+            </div>
+          </div>
+
+          @if(Session::has('error'))
+            <div class="alert alert-danger">{{ Session::get('error') }}</div>
+          @endif
+          @if(Session::has('success'))
+            <div class="alert alert-success">{{ Session::get('success') }}</div>
+          @endif
+          @if(!$supportsActiveFlag)
+            <div class="alert alert-warning">Showing/hiding plans needs the latest database migration (<code>php artisan migrate</code>).</div>
+          @endif
+
           @if(isset($packages))
             <div class="row">
               <div class="col-sm-12">
                 <div class="card-box table-responsive">
-                  <p class="text-muted font-13 m-b-30">
-                    Packages Details
-                  </p>
                   <div class="x_content">
                     <table id="datatable" class="table table-striped table-bordered" style="width:100%">
                       <thead>
                         <tr>
-                          <th>Package Number</th>
+                          <th>#</th>
                           <th>Name</th>
+                          <th>Type</th>
                           <th>Description</th>
+                          <th>Includes</th>
                           <th>Duration</th>
                           <th>Regular Price</th>
-                          <th>Discount</th>
-                          <th>in-offer Price</th>
-                          <th>Validity (days)</th>
+                          <th>Discount (%)</th>
+                          <th>In-offer Price</th>
+                          <th>Validity</th>
+                          <th>Status</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         @foreach($packages as $package)
-
-                          @if($package->package)
-
-                            @if($package->package->name=="HappiTALK")
-                                @continue;
-                            @endif
-
-                            @if($package->package->name != 'HappiAPP' && $package->package->name != 'HappiBUDDY+ HappiAPP')
-                              <tr>
-                                <td>{{ $package->id }}</td>
-
-                                <?php  
-                                  $name = $package->package->name;
-                                  if($name == 'HappiLIFE Summary Reading'){
-                                    $name = 'HappiLEARN';
-                                  }
-                                  if($name == 'HappiLIFE Screening'){
-                                    $name = 'HappiLIFE Awareness Tool';
-                                  }
-                                ?>
-                                
-                                <td>{{ $name }}</td>
-                                <td>{{ $package->package->description }}</td>
-                                <td>{{ $package->duration->name }}</td>
-                                <td>{{ $package->price }}&nbsp;&nbsp<button type="button" onclick="OpenBundlePriceUpdateModal({{ $package->id }},{{ $package->price }},{{ $package->offer->discount }},{{ $package->offer->price }},{{ $package->package->validity ? $package->package->validity : 0 }})" style="border:0px;"><i class="fa fa-edit" style="font-size:16px;color:red;"></i></button></td>
-                                @if($package->offer)
-                                <td> {{ $package->offer->discount }}</td>
-                                <td>{{ $package->offer->price }}</td>
+                          @if($package->package && !in_array($package->package->name, ['HappiTALK', 'HappiAPP', 'HappiBUDDY+ HappiAPP']))
+                            <?php
+                              $name = \App\Http\Controllers\PlanManagementController::displayName($package->package->name);
+                              $isBundle = (bool)$package->package->bundle;
+                              $isActive = !$supportsActiveFlag || $package->package->is_active;
+                            ?>
+                            <tr class="{{ $isActive ? '' : 'plan-hidden-row' }}">
+                              <td>{{ $package->id }}</td>
+                              <td><strong>{{ $name }}</strong></td>
+                              <td>
+                                @if($isBundle)
+                                  <span class="label label-info">Bundle</span>
                                 @else
+                                  <span class="label label-default">Single service</span>
+                                @endif
+                              </td>
+                              <td>{{ $package->package->description }}</td>
+                              <td>
+                                @if($isBundle && !empty($bundleContents[$package->package->id]))
+                                  <ul class="plan-contents">
+                                    @foreach($bundleContents[$package->package->id] as $item)
+                                      <li>{{ $item }}</li>
+                                    @endforeach
+                                  </ul>
+                                @else
+                                  -
+                                @endif
+                              </td>
+                              <td>{{ $package->duration ? $package->duration->name : '-' }}</td>
+                              <td>{{ $package->price }}</td>
+                              @if($package->offer)
+                                <td>{{ $package->offer->discount }}</td>
+                                <td>{{ $package->offer->price }}</td>
+                              @else
                                 <td>No Offer</td>
                                 <td>{{ $package->price }}</td>
+                              @endif
+                              <td>{{ $package->package->validity ? $package->package->validity . ' days' : 'Lifetime' }}</td>
+                              <td>
+                                @if($isActive)
+                                  <span class="label label-success">Visible</span>
+                                @else
+                                  <span class="label label-warning">Hidden</span>
                                 @endif
-                                <td>{{ $package->package->validity ? $package->package->validity . ' days' : 'Lifetime' }}</td>
-                              </tr>
-                            @endif
-                            
+                              </td>
+                              <td class="plan-actions" style="white-space:nowrap;">
+                                <a href="{{ route('admin.plans.edit', $package->id) }}" class="btn btn-xs btn-primary" title="Edit"><i class="fa fa-edit"></i> Edit</a>
+                                @if($supportsActiveFlag)
+                                  <form method="POST" action="{{ route('admin.plans.toggleStatus', $package->id) }}"
+                                        onsubmit="return confirm('{{ $isActive ? 'Hide this plan? Customers will no longer be able to buy it.' : 'Make this plan visible to customers again?' }}');">
+                                    @csrf
+                                    <button type="submit" class="btn btn-xs {{ $isActive ? 'btn-warning' : 'btn-success' }}">
+                                      <i class="fa {{ $isActive ? 'fa-eye-slash' : 'fa-eye' }}"></i> {{ $isActive ? 'Hide' : 'Show' }}
+                                    </button>
+                                  </form>
+                                @endif
+                                @if($isBundle)
+                                  <form method="POST" action="{{ route('admin.plans.destroy', $package->id) }}"
+                                        onsubmit="return confirm('Delete this bundle permanently? This only works if nobody has bought it.');">
+                                    @csrf
+                                    <button type="submit" class="btn btn-xs btn-danger"><i class="fa fa-trash"></i> Delete</button>
+                                  </form>
+                                @endif
+                              </td>
+                            </tr>
                           @endif
                         @endforeach
                       </tbody>
@@ -91,117 +146,3 @@
     </div>
   </x-slot>
 </x-backend-layout>
-<div class="modal" id="UpdatePrice" data-backdrop="static" data-keyboard="false" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true" style="display: none;">
-    <div class="modal-dialog modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title modal-title-1" id="exampleModalLabel">Update Price</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-            <span aria-hidden="true">×</span>
-          </button>
-        </div>
-        <form>
-          <div class="modal-body">
-            <div class="form-group">
-                 <label for="reg_price">Enter Regular Price</label>
-                 <input type="number" class="form-control" name="reg_price" oninput="validateInput(reg_price,discount,inofferprice)" id="reg_price" min="0" value="" required/>
-                 <div id="reg_price_vali" style="color:red;"></div>
-            </div>
-            <div class="form-group">
-                 <label for="discount">Enter Discount</label>
-                 <input type="number" class="form-control" name="discount" min="0" max="100" oninput="validateInput(reg_price,discount,inofferprice)" id="discount" value="" required/>
-                 <div id="discount_vali" style="color:red;"></div>
-            </div>
-            <div class="form-group">
-                 <label for="in-offer-price">In-Offer-Price</label>
-                 <input type="number" class="form-control" name="inofferprice" oninput="validateInput(reg_price,discount,inofferprice)" id="inofferprice" value="" required>
-                 <div id="inoffer_vali" style="color:red;"></div>
-            </div>
-            <div class="form-group">
-                 <label for="validity">Validity (in days) — blank = lifetime</label>
-                 <input type="number" class="form-control" name="validity" min="1" id="validity" value="">
-            </div>
-
-          </div>
-          <div class="update-price">
-            <button type="button" data-dismiss="modal" id="update-price-button" class="btn btn-primary" style="margin-left:15px;" onclick="updatePrice(reg_price,discount,inofferprice,validity)">Update Price</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-  <script>
-  function OpenBundlePriceUpdateModal(package_id,reg_price,discount,inofferprice,validity){
-    $("#UpdatePrice").modal("show");
-    $("#reg_price").attr("value",reg_price);
-    $("#discount").attr("value",discount);
-    $("#inofferprice").attr("value",inofferprice);
-    $("#validity").attr("value",validity ? validity : "");
-    sessionStorage.setItem("package_id",package_id);
-  }
-  function updatePrice(regular_price,discount,inofferprice,validity){
-    var $package_id=sessionStorage.getItem("package_id");
-    var $regular_price=regular_price.value;
-    var $discount=discount.value;
-    var $inofferprice=inofferprice.value;
-    var $validity=validity.value;
-    if ($regular_price <0 ||$regular_price=='') {
-      alert("Regular Price must be filled and greater than 0");
-      return false;
-    }
-    if ($discount== ""||$discount<0||$discount>100) {
-      alert("Discount must be filled and between 0 and 100");
-      return false;
-    }
-    if ($inofferprice <0 ||$inofferprice=='') {
-      alert("In Offer Price must be filled and greater than or equal to 0");
-      return false;
-    }
-    if ($validity!='' && ($validity<1 || isNaN($validity))) {
-      alert("Validity must be a positive number of days, or left blank for lifetime");
-      return false;
-    }
-
-    $.ajax({
-      type: "post",
-      url:'{{url("/")}}/admin/bundle-update',
-      data:{
-        'id':$package_id,
-        'regular_price':$regular_price,
-        'discount':$discount,
-        'inoffer_price':$inofferprice,
-        'validity':$validity
-      },
-      dataType: "json",
-      success: function(result) {
-        if(result.message.notify.type=="success"){
-          location.reload();
-        }
-      }
-    })
-  }
-  function validateInput(regular_price,discount,inofferprice){
-    var $regular_price=regular_price.value;
-    var $discount=discount.value;
-    var $inofferprice=inofferprice.value;
-    if ($regular_price <0 ||$regular_price=='') {
-      $("#reg_price_vali").html("Regular Price must be filled and greater than or equal to 0");
-    }
-    else{
-      $("#reg_price_vali").html("");
-    }
-    if ($discount== ""||$discount<0||$discount>100) {
-      $("#discount_vali").html("Discount must be filled and between 0 and 100 including both");
-    }
-    else{
-      $("#discount_vali").html("");
-    }
-    if ($inofferprice <0 ||$inofferprice=='') {
-      $("#inoffer_vali").html("In Offer Price must be filled and greater than or equal to 0");
-    }
-    else{
-      $("#inoffer_vali").html("");
-    }
-
-  }
-  </script>

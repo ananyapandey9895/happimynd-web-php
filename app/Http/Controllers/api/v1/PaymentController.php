@@ -132,11 +132,11 @@ class PaymentController extends Controller
         // Organisation users get only single services, unless the caller asks
         // for bundles too (the app offers org users the bundles + HappiTALK)
         if ($user && $user->isOrganizationUser() && !$request->boolean('with_bundles')) {
-            $un_sorted_packages = Package::where('bundle', 0)->with(['plan' => function ($query) {
+            $un_sorted_packages = Package::visible()->where('bundle', 0)->with(['plan' => function ($query) {
                 return $query->withMax('offer', 'discount')->with('duration')->orderBy('offer_max_discount', 'ASC')->with('expertLevel');
             }])->get();
         } else {
-            $un_sorted_packages = Package::with(['plan' => function ($query) {
+            $un_sorted_packages = Package::visible()->with(['plan' => function ($query) {
                 return $query->withMax('offer', 'discount')->with('duration')->orderBy('offer_max_discount', 'ASC')->with('expertLevel');
             }])->get();
         }
@@ -236,6 +236,11 @@ class PaymentController extends Controller
 
         $plan_id = $request->plan_id;
         $amount = $request->amount;
+
+        // Plans hidden from the admin panel can no longer be bought.
+        if (!Package::planIsPurchasable($plan_id)) {
+            return response()->json(["message" => "This plan is no longer available."], 400);
+        }
 
         $net_amount = $amount * 100;
         $currency = 'INR';

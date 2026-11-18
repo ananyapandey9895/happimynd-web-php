@@ -49,11 +49,11 @@ class PaymentController extends Controller
         // }
         $un_sorted_packages = null;
         if (auth('user')->user()->isOrganizationUser()) {
-            $un_sorted_packages = Package::where('bundle', 0)->with(['plan' => function ($query) {
+            $un_sorted_packages = Package::visible()->where('bundle', 0)->with(['plan' => function ($query) {
                 return $query->withMax('offer', 'discount')->with('duration')->orderBy('offer_max_discount', 'ASC')->with('expertLevel');
             }])->get();
         } else {
-            $un_sorted_packages = Package::with(['plan' => function ($query) {
+            $un_sorted_packages = Package::visible()->with(['plan' => function ($query) {
                 return $query->withMax('offer', 'discount')->with('duration')->orderBy('offer_max_discount', 'ASC')->with('expertLevel');
             }])->get();
         }
@@ -102,6 +102,19 @@ class PaymentController extends Controller
                 $plans = Plan::whereIn('id', $planIds)->with(['offer' => function ($query) {
                     $query->where('valid', true)->orderBy('created_at', 'desc');
                 }])->with('package')->get();
+
+                // Plans hidden from the admin panel can no longer be bought
+                // (plans an organisation gives its users for free still work).
+                $orgPlanIds = [];
+                if ($user->isOrganizationUser() && $user->userToken && $user->userToken->token) {
+                    $orgPlanIds = $user->userToken->token->tokenPlans()->pluck('plan_id')->toArray();
+                }
+                foreach ($plans as $requestedPlan) {
+                    if (!in_array($requestedPlan->id, $orgPlanIds) && !Package::planIsPurchasable($requestedPlan->id)) {
+                        return redirect()->back()->with('error', 'This plan is no longer available.');
+                    }
+                }
+
                 //check if plans already subscribed by user
                 $planNames = $plans->pluck('package.name')->toArray();
                 $subscribedPlans = $user->bundleStatus()->with('plans.package')->get()->pluck('plans.package.name')->toArray();

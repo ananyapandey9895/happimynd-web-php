@@ -1074,8 +1074,24 @@ class AdminController extends Controller
         $packages = Plan::with('duration')->with('package')->with(['offer' => function ($query) {
             $query->where('valid', true)->orderBy('created_at', 'desc');
         }])->get();
+
+        // What each bundle contains, e.g. [package_id => ['HappiSELF', 'HappiTALK (5 sessions)']]
+        $planNames = Plan::with('package')->get()->mapWithKeys(function ($plan) {
+            return [$plan->id => $plan->package ? \App\Http\Controllers\PlanManagementController::displayName($plan->package->name) : ('Plan #' . $plan->id)];
+        });
+        $bundleContents = [];
+        foreach (DynamicBundlePlan::all() as $row) {
+            $label = $planNames[$row->plan_id] ?? ('Plan #' . $row->plan_id);
+            if ($row->sessions) {
+                $label .= ' (' . $row->sessions . ' sessions)';
+            }
+            $bundleContents[$row->package_id][] = $label;
+        }
+
         return view('Backend/bundle')
-            ->with('packages', $packages);
+            ->with('packages', $packages)
+            ->with('bundleContents', $bundleContents)
+            ->with('supportsActiveFlag', Package::supportsActiveFlag());
     }
 
     public function updateBundlePrice(Request $request)
