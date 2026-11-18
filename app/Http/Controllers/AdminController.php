@@ -100,6 +100,8 @@ use App\Models\UserRewardPointRecord;
 use Maatwebsite\Excel\Facades\Excel;
 
 use App\Exports\UserListDateWiseExport;
+use App\Exports\UserDataExport;
+use App\Exports\UserStatisticsExport;
 use App\Exports\UserPlanDateWiseExport;
 use App\Exports\AllUserPlansExport;
 use App\Exports\FeedbackExport;
@@ -199,6 +201,8 @@ class AdminController extends Controller
 
         // Users who actually started each product (B2C / B2B split)
         $productUsage = UserProductService::dashboardBreakdown();
+        // New users in the last 24 hours / 7 days, overall and per service
+        $newUserStats = UserProductService::newUserStats();
         // $tokenCount = Token::whereHas('organization', function ($query) {
         //     $query->removeTestOrganization();
         // })->get()->count();
@@ -238,6 +242,7 @@ class AdminController extends Controller
             ->with('tokenCount', $tokenCount)
             ->with('b2bCodeStats', $b2bCodeStats)
             ->with('productUsage', $productUsage)
+            ->with('newUserStats', $newUserStats)
             ->with('session_Details' , $session_Details);
     }
     public function addAdminUser(AdminUserDetailRequest $request)
@@ -326,50 +331,112 @@ class AdminController extends Controller
         if (!auth('admin')->user()->hasAnyRole(['super-admin', 'admin'])) {
             return redirect(route('admin.dashboard'));
         }
-        // $users = User::latest()->with('profileType' , 'usersRating')->get();
-        $perPage = $request->get('per_page', 10);
-
         // Every user is in the list; ?product=happilife (etc.) narrows it to users who started that product
         $product = $request->get('product');
         if (!UserProductService::isValidFilter($product)) {
             $product = null;
         }
 
-        $query = User::latest()->with('profileType' , 'usersRating');
+        // ?from_date / ?to_date: registration date, or (with a product) the date the user started that product
+        [$fromDate, $toDate] = UserProductService::dateRange($request);
+
+        // Eager load everything a row prints. Previously each row ran separate queries for
+        // coupons, receipts, user token, token and organization, so large pages
+        // (e.g. HappiLIFE with 500/1000 rows) took very long or timed out.
+        $query = User::query()
+            ->select('users.*')
+            ->with([
+                'profileType',
+                'usersRating',
+                'couponReceipt.receipt',
+                'couponReceipt.coupon',
+                'userToken.token.organization' => function ($q) {
+                    $q->withTrashed();
+                },
+            ])
+            ->orderByDesc('users.created_at')
+            ->orderByDesc('users.id');
         UserProductService::withUsageCounts($query);
         if ($product) {
             UserProductService::applyFilter($query, $product);
         }
-        $users = $query->paginate($perPage)
+        UserProductService::applyDateRange($query, $product, $fromDate, $toDate);
+        if ($product && isset(UserProductService::PRODUCTS[$product])) {
+            $query->withMin(UserProductService::PRODUCTS[$product]['relation'] . ' as product_started_at', 'created_at');
+        }
+
+        $users = $query->paginate($this->perPage($request))
             ->appends($request->except('page'));
 
         return view('Backend/customerList')
             ->with('users', $users)
             ->with('product', $product)
+            ->with('fromDate', $fromDate)
+            ->with('toDate', $toDate)
             ->with('products', UserProductService::PRODUCTS)
             ->with('productCounts', UserProductService::counts());
     }
 
+    /**
+     * per_page from the pagination dropdown, limited so a page can't request an unbounded number of rows.
+     */
+    private function perPage(Request $request): int
+    {
+        $perPage = (int)$request->get('per_page', 10);
+        return ($perPage >= 1 && $perPage <= 1000) ? $perPage : 10;
+    }
 
+    /**
+     * Excel writer type + extension for ?format=xlsx|csv
+     */
+    public static function exportFormat($format): array
+    {
+        if (strtolower((string)$format) === 'csv') {
+            return [\Maatwebsite\Excel\Excel::CSV, 'csv'];
+        }
+        return [\Maatwebsite\Excel\Excel::XLSX, 'xlsx'];
+    }
 
+    /**
+     * Download user data (Excel/CSV) for All Users or one service, optionally for a date range.
+     * ?product=happilife&from_date=2026-11-01&to_date=2026-11-17&format=csv
+     */
     public function downloadUserListXL(Request $request)
     {
-        $users = null;
         if (!auth('admin')->user()->hasAnyRole(['super-admin', 'admin'])) {
             return redirect(route('admin.dashboard'));
         }
-        // $users = User::latest()->with('profileType' , 'usersRating')->get();
 
-        $start_date = $request->start_date;
-        $end_date = $request->end_date;
+        $product = $request->get('product');
+        if (!UserProductService::isValidFilter($product)) {
+            $product = null;
+        }
+        [$fromDate, $toDate] = UserProductService::dateRange($request);
+        [$writerType, $extension] = self::exportFormat($request->get('format'));
 
-        $data = [
-            'start_date' => $start_date,
-            'end_date' => $end_date,
-        ];
+        @set_time_limit(300);
 
-        return Excel::download(new UserListDateWiseExport($data), 'User List ' . Carbon::now()->format('d-M-Y g-i a') . '.xlsx');
+        return Excel::download(
+            new UserDataExport($product, $fromDate, $toDate),
+            UserDataExport::fileName($product, $fromDate, $toDate, $extension),
+            $writerType
+        );
+    }
 
+    /**
+     * Download overall user statistics (Excel/CSV): totals, B2C/B2B and new users per service.
+     */
+    public function downloadUserStatistics(Request $request)
+    {
+        if (!auth('admin')->user()->hasAnyRole(['super-admin', 'admin'])) {
+            return redirect(route('admin.dashboard'));
+        }
+
+        [$fromDate, $toDate] = UserProductService::dateRange($request);
+        [$writerType, $extension] = self::exportFormat($request->get('format'));
+        $export = new UserStatisticsExport($fromDate, $toDate);
+
+        return Excel::download($export, $export->fileName($extension), $writerType);
     }
 
 

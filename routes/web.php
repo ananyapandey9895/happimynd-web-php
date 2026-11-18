@@ -338,6 +338,7 @@ Route::prefix('admin')->name('admin.')->middleware(['jwt.verify:admin'])->group(
 
     Route::match(['GET' , 'POST'],'happilearn-content-list', [HappilearnController::class, 'happiLearnContentList'])->name('happilearn-content-list');
     Route::get('happilearn-users', [HappilearnController::class, 'happiLearnUserList'])->name('happilearnUserList');
+    Route::get('happilearn-users-download', [HappilearnController::class, 'happiLearnUserDownload'])->name('happilearnUserDownload');
     Route::get('happilearn-users/{user_id}', [HappilearnController::class, 'happiLearnUserDetail'])->name('happilearnUserDetail');
     Route::match(['GET' , 'POST'],'upload-learn-media', [HappilearnController::class, 'uploadLearnMedia'])->name('uploadLearnMedia');
 
@@ -414,6 +415,7 @@ Route::prefix('admin')->name('admin.')->middleware(['jwt.verify:admin'])->group(
     Route::get('addUser', [AdminController::class, 'getAddAdminView'])->name('addAdminView');
     Route::get('/list/customers', [AdminController::class, 'getCustomerList'])->name('customerListView');
     Route::any('download-user-list-xl', [AdminController::class, 'downloadUserListXL'])->name('downloadUserListXL');
+    Route::get('download-user-statistics', [AdminController::class, 'downloadUserStatistics'])->name('downloadUserStatistics');
     // Removed downloadAllUserPlans route in favor of date-wise filtering with downloadUserPlanXL
 
     Route::get('/view-user-mood/{user_id}', [AdminController::class, 'viewUserMood'])->name('viewUserMood');
