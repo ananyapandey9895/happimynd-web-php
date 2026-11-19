@@ -10,6 +10,7 @@ use App\Services\AssessmentService;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\PlanManagementController;
 use App\Http\Controllers\DataExportController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\BatchController;
@@ -462,6 +463,10 @@ Route::prefix('admin')->name('admin.')->middleware(['jwt.verify:admin'])->group(
 
     Route::get('bundle-detail/', [AdminController::class, 'bundleDetail'])->name('bundleDetail');
     Route::post('bundle-update/', [AdminController::class, 'updateBundlePrice']);
+    Route::get('plans/{id}/edit', [PlanManagementController::class, 'edit'])->name('plans.edit');
+    Route::post('plans/{id}/edit', [PlanManagementController::class, 'update'])->name('plans.update');
+    Route::post('plans/{id}/toggle-status', [PlanManagementController::class, 'toggleStatus'])->name('plans.toggleStatus');
+    Route::post('plans/{id}/delete', [PlanManagementController::class, 'destroy'])->name('plans.destroy');
     Route::post('priority-update/', [AdminController::class, 'updateOurTeamPriority']);
     Route::post('priority-update-our-clients/',  [AdminController::class, 'updateOurClientPriority'])->name('priorityClientUpdate');
     Route::get('manage-bundle/', [AdminController::class, 'manageBundle'])->name('manageBundle');
