@@ -85,7 +85,7 @@
 
                     @if(auth('admin')->user()->hasAnyRole(['admin','super-admin' , 'plans']))<li><a href="{{ route('admin.createBundle') }}">Create Bundles</a></li> @endif
 
-                    @if(auth('admin')->user()->hasAnyRole(['admin','super-admin' , 'plans']))<li><a href="{{ route('admin.bundleDetail') }}">Bundles Detail</a></li> @endif
+                    @if(auth('admin')->user()->hasAnyRole(['admin','super-admin' , 'plans']))<li><a href="{{ route('admin.bundleDetail') }}">Manage Plans &amp; Bundles</a></li> @endif
                     @if(auth('admin')->user()->hasAnyRole(['admin','super-admin' , 'plans']))<li><a href="{{ route('admin.paymentDetail') }}">Payment Detail</a></li> @endif
                     @if(auth('admin')->user()->hasAnyRole(['admin','super-admin' , 'plans']))<li><a href="{{ route('admin.paymentDetailIos') }}">IOS Purchases</a></li> @endif
                     @if(auth('admin')->user()->hasAnyRole(['admin','super-admin' , 'plans']))<li><a href="{{ route('admin.usersPlans.get') }}">User's Plans</a></li> @endif

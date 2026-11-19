@@ -30,12 +30,66 @@ class Package extends Model
         'duration_id',
         'regular_price',
         'package_id',
-        'validity'
+        'validity',
+        'is_active',
     ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
+
+    private static $hasIsActiveColumn = null;
+
+    /**
+     * True when the is_active migration has run. Lets the code deploy before
+     * `php artisan migrate` without breaking the plan listings.
+     */
+    public static function supportsActiveFlag(): bool
+    {
+        if (self::$hasIsActiveColumn === null) {
+            self::$hasIsActiveColumn = \Illuminate\Support\Facades\Schema::hasColumn('packages', 'is_active');
+        }
+        return self::$hasIsActiveColumn;
+    }
+
+    /**
+     * Only plans that admins have not hidden (what customers may see and buy).
+     */
+    public function scopeVisible($query)
+    {
+        if (self::supportsActiveFlag()) {
+            $query->where($this->getTable() . '.is_active', 1);
+        }
+        return $query;
+    }
+
+    public function isVisible(): bool
+    {
+        return !self::supportsActiveFlag() || (bool)$this->is_active;
+    }
+
+    /**
+     * Whether the given plan id belongs to a plan admins have not hidden.
+     * Unknown plan ids return true so existing validation keeps handling them.
+     */
+    public static function planIsPurchasable($planId): bool
+    {
+        $plan = Plan::find($planId);
+        if (!$plan) {
+            return true;
+        }
+        $package = self::withTrashed()->find($plan->package_id);
+        return $package && !$package->trashed() && $package->isVisible();
+    }
 
     public function plan()
     {
         return $this->hasMany(Plan::class);
+    }
+
+    public function bundlePlans()
+    {
+        return $this->hasMany(DynamicBundlePlan::class, 'package_id');
     }
 
     public function offer()
