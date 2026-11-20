@@ -87,6 +87,8 @@ Route::group(['prefix' => 'v1',  'namespace' => 'api\v1'], function () {
 
     Route::get('on-off-status', [UserAuthenticationController::class, 'onOffStatus']);
 
+    Route::match(['GET' , 'POST'],'payment-gateway-path', [UserAuthenticationController::class, 'paymentGatewayPath']);
+
     Route::match(['GET' , 'POST'],'onboarding', [UserAuthenticationController::class,'onBoarding']);
     Route::match(['GET' , 'POST'],'organizer-list', [UserAuthenticationController::class,'organizerList']);
     Route::match(['GET' , 'POST'],'user-profile', [UserAuthenticationController::class,'userProfile']);

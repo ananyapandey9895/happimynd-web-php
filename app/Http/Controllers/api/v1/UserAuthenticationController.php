@@ -1694,6 +1694,10 @@ Help us keep you safe. Tell us if you signed in from another device😵🤯😨 
         return response()->json(['status' => 'success' , 'is_open' => 1]);
     }
 
+    public function paymentGatewayPath(){
+        return response()->json(['status' => 'success' , 'payment_gateway_path' => 0]);
+    }
+
 
 }
 
