@@ -167,6 +167,7 @@ Route::group(['prefix' => 'v1',  'namespace' => 'api\v1'], function () {
         //Assessment
         Route::match(['GET' , 'POST'],'start-assessment', [UserAuthenticationController::class,'startAssessment']);
         Route::match(['GET' , 'POST'],'checkifany', [UserAuthenticationController::class,'checkIfAnyAssessmentCompleted']);
+        Route::match(['GET' , 'POST'],'happilife-progress', [UserAuthenticationController::class,'happiLifeProgress']);
         Route::match(['GET' , 'POST'],'save-option', [UserAuthenticationController::class,'saveOption']);
         Route::match(['GET' , 'POST'],'complete-assessment', [UserAuthenticationController::class,'completeAssessment']);
         Route::match(['GET' , 'POST'],'view-report', [UserAuthenticationController::class,'viewReport']);

@@ -27,6 +27,7 @@ use App\Models\UserMood;
 use App\Models\MoodMeterEmoji;
 use App\Models\RewardPointInstance;
 use App\Models\UserRewardPointRecord;
+use App\Models\HappilifeReminder;
 
 
 
@@ -801,13 +802,62 @@ Help us keep you safe. Tell us if you signed in from another device😵🤯😨 
             );
 
             $additional_data = ['perPage' => $this->assessmentService->questionsPerPage, 'answered' => $this->assessmentService->answeredQuestionsCount, 'total' => $this->assessmentService->totalQuestionsCount, 'current_page' => $this->assessmentService->getPageNumber()];
-            
+
+            // Resume context so clients can tell the user how far they got
+            // ("42 of 115 answered, 36%") instead of silently showing the
+            // remaining questions. Additive fields — older clients ignore them.
+            $answeredCount = (int) $this->assessmentService->answeredQuestionsCount;
+            $totalCount = (int) $this->assessmentService->totalQuestionsCount;
+            $lastAnsweredAt = AssessmentAnswer::where('assessment_id', $assessmentId)->max('updated_at');
+            $startedAt = $assessment->started_at ?? $assessment->created_at;
+            $additional_data['assessment_id'] = $assessmentId;
+            $additional_data['progress_percent'] = $totalCount > 0 ? min(99, (int) floor(min($answeredCount, $totalCount) / $totalCount * 100)) : 0;
+            $additional_data['remaining'] = max(0, $totalCount - $answeredCount);
+            $additional_data['next_question_number'] = min($answeredCount + 1, max($totalCount, 1));
+            $additional_data['started_at'] = $startedAt ? Carbon::parse($startedAt)->toIso8601String() : null;
+            $additional_data['last_answered_at'] = $lastAnsweredAt ? Carbon::parse($lastAnsweredAt)->toIso8601String() : null;
+            $additional_data['is_resumed'] = $answeredCount > 0;
+
             return response()->json(['status' => 'success' , 'message' => 'Questions get sucessfully.' , 'questions' => $data , 'overview' => $additional_data]);
         }
         return response()->json(['status' => 'success' , 'message' => 'Invalid assessment']);
     }
 
 
+
+    /**
+     * Read-only HappiLIFE progress for dashboards and resume prompts.
+     * Unlike start-assessment it never opens a new attempt or changes data.
+     */
+    public function happiLifeProgress(Request $request){
+        $user = auth('user')->user();
+
+        $completedCount = Assessment::where('user_id', $user->id)->whereNotNull('ended_at')->count();
+        $incomplete = Assessment::where('user_id', $user->id)->whereNull('ended_at')->orderBy('id', 'desc')->first();
+
+        $progress = null;
+        if ($incomplete) {
+            try {
+                $progress = (new AssessmentService)->progressSnapshot($incomplete->id);
+            } catch (\Throwable $e) {
+                \Log::warning('happilife-progress failed for assessment '.$incomplete->id.': '.$e->getMessage());
+            }
+        }
+
+        $lastReminder = $incomplete
+            ? HappilifeReminder::where('assessment_id', $incomplete->id)->latest()->first()
+            : null;
+
+        return response()->json([
+            'status' => 'success',
+            'in_progress' => $progress !== null,
+            'completed_count' => $completedCount,
+            'max_attempts' => 6,
+            'max_attempts_reached' => $completedCount >= 6,
+            'progress' => $progress,
+            'last_reminder_at' => $lastReminder ? $lastReminder->created_at->toIso8601String() : null,
+        ]);
+    }
 
     public function saveOption(Request $request){
         // return auth::user();

@@ -209,6 +209,7 @@
                 <li><a><i class="fa fa-users"></i> Assessment <span class="fa fa-chevron-down"></span></a>
                     <ul class="nav child_menu">
                     {!! $productUsersLink('happilife', 'HappiLIFE') !!}
+                    <li><a href="{{ route('admin.happilifeReminders') }}">HappiLIFE Reminders</a></li>
                     @if(auth('admin')->user()->hasAnyRole(['admin','super-admin' , 'assessments']))<li><a href="{{ route("admin.getAllBatches.get") }}">Batches</a></li> @endif
                     @if(auth('admin')->user()->hasAnyRole(['admin','super-admin' , 'assessments']))<li><a href="{{ route("admin.getAllCategories.get") }}">Categories</a></li> @endif
                     @if(auth('admin')->user()->hasAnyRole(['admin','super-admin' , 'assessments']))<li><a href="{{ route('admin.allocateCategoryToBatch') }}">Allocate Categories to Batch</a></li> @endif

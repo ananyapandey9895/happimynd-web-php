@@ -29,6 +29,7 @@ use App\Models\User;
 use App\Models\UserProfile;
 use Twilio\Rest\Messaging\V1\CampaignContext;
 use App\Http\Controllers\AssessmentController;
+use App\Http\Controllers\HappiLifeReminderController;
 use App\Http\Controllers\CouponController;
 use App\Http\Controllers\PromptController;
 use App\Http\Controllers\ScoreController;
@@ -475,6 +476,10 @@ Route::prefix('admin')->name('admin.')->middleware(['jwt.verify:admin'])->group(
 
     Route::get('assesmentList/', [AdminController::class, 'assesmentList'])->name('assesmentList');
     Route::match(['GET' , 'POST'],'assesmentListByUsername/', [AdminController::class, 'assesmentListByUsername'])->name('assesmentListByUsername');
+
+    // HappiLIFE: unfinished attempts + manual "finish your check in" reminders
+    Route::get('happilife-reminders', [HappiLifeReminderController::class, 'index'])->name('happilifeReminders');
+    Route::post('happilife-reminders/send', [HappiLifeReminderController::class, 'send'])->name('happilifeReminders.send');
 
 
     Route::get('deleteAssessment/{assessment_id}', [AdminController::class, 'deleteAssessment'])->name('deleteAssessment');
