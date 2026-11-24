@@ -343,6 +343,13 @@
               </li>
             @endif
 
+            {{-- External apps --}}
+            @if(auth('admin')->user()->hasAnyRole(['admin','super-admin']))
+                <li><a href="https://quizzard.happimynd.com/" target="_blank" rel="noopener noreferrer"><i class="fa fa-question-circle"></i> Quizzard <span class="fa fa-external-link"></span></a></li>
+                <li><a href="https://happipause.happimynd.com/" target="_blank" rel="noopener noreferrer"><i class="fa fa-pause-circle"></i> HappiPAUSE <span class="fa fa-external-link"></span></a></li>
+                <li><a href="https://psychologist-dashboard.vercel.app/login" target="_blank" rel="noopener noreferrer"><i class="fa fa-user-md"></i> Psychologist Dashboard <span class="fa fa-external-link"></span></a></li>
+            @endif
+
             {{-- Chat Bot --}}
 
             @if(auth('admin')->user()->hasAnyRole(['admin','super-admin' , 'ChatBot']))

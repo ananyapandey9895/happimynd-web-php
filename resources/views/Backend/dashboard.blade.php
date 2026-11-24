@@ -142,6 +142,49 @@
                   </div>
                 </div>
 
+                {{-- Users who used each product in rolling day / week / month / year windows --}}
+                <div class="row">
+                  <div class="col-md-12 col-sm-12 ">
+                    <div class="x_panel">
+                      <div class="x_title">
+                        <h2>Active users <small>users who used each product in the period (test users excluded, refreshes every 10 min)</small></h2>
+                        <div class="clearfix"></div>
+                      </div>
+                      <div class="x_content">
+                        <table class="table table-bordered" style="display:table; height:auto; overflow:visible;">
+                          <thead>
+                            <tr>
+                              <th>Product</th>
+                              <th class="text-right">Daily (last 24 hours)</th>
+                              <th class="text-right">Weekly (last 7 days)</th>
+                              <th class="text-right">Monthly (last 30 days)</th>
+                              <th class="text-right">Yearly (last 365 days)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @foreach($activeUserStats['products'] as $row)
+                            <tr>
+                              <td>{{ $row['label'] }}</td>
+                              <td class="fs15 fw700 text-right">{{ $row['daily'] }}</td>
+                              <td class="fs15 fw700 text-right">{{ $row['weekly'] }}</td>
+                              <td class="fs15 fw700 text-right">{{ $row['monthly'] }}</td>
+                              <td class="fs15 fw700 text-right">{{ $row['yearly'] }}</td>
+                            </tr>
+                            @endforeach
+                            <tr>
+                              <td><strong>Any product</strong></td>
+                              <td class="fs15 fw700 text-right">{{ $activeUserStats['all']['daily'] }}</td>
+                              <td class="fs15 fw700 text-right">{{ $activeUserStats['all']['weekly'] }}</td>
+                              <td class="fs15 fw700 text-right">{{ $activeUserStats['all']['monthly'] }}</td>
+                              <td class="fs15 fw700 text-right">{{ $activeUserStats['all']['yearly'] }}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 @if($canDownloadReports)
                 {{-- Download reports: overall statistics, or one service's user data, for an optional date range --}}
                 <div class="row">
