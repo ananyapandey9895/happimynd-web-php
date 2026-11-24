@@ -37,6 +37,29 @@ class UserProductService
         'happivoice' => ['label' => 'HappiVOICE', 'relation' => 'happivoiceScores'],
     ];
 
+    /**
+     * Column that shows when a user last used each product.
+     * Tables that add a row per use keep created_at; tables that keep one row
+     * per user/item and update it on each visit use updated_at.
+     */
+    const ACTIVITY_COLUMNS = [
+        'happilife'  => 'created_at',
+        'happiself'  => 'updated_at',
+        'happiguide' => 'created_at',
+        'happibuddy' => 'updated_at',
+        'happitalk'  => 'created_at',
+        'happilearn' => 'updated_at',
+        'happivoice' => 'created_at',
+    ];
+
+    /** Rolling windows for the active-user counts: name => days */
+    const ACTIVITY_WINDOWS = [
+        'daily'   => 1,
+        'weekly'  => 7,
+        'monthly' => 30,
+        'yearly'  => 365,
+    ];
+
     public static function isValidFilter($product): bool
     {
         return $product === self::NONE || isset(self::PRODUCTS[$product]);
@@ -216,6 +239,50 @@ class UserProductService
             }
             return $stats;
         });
+    }
+
+    /**
+     * Distinct users who used each product in the last day / week / month / year
+     * (rolling windows, test users excluded). 'all' = users who used any product.
+     * ['products' => [key => ['label', 'daily', 'weekly', 'monthly', 'yearly']], 'all' => [window => n]]
+     */
+    public static function activeUserStats(): array
+    {
+        return Cache::remember(self::COUNT_CACHE_KEY . '.active_users', self::COUNT_CACHE_TTL, function () {
+            $now = Carbon::now();
+            $since = [];
+            foreach (self::ACTIVITY_WINDOWS as $name => $days) {
+                $since[$name] = $now->copy()->subDays($days);
+            }
+
+            $stats = ['products' => [], 'all' => []];
+            foreach (self::PRODUCTS as $key => $config) {
+                $stats['products'][$key] = ['label' => $config['label']];
+                foreach ($since as $name => $from) {
+                    $stats['products'][$key][$name] = User::RemoveTestUser()
+                        ->whereHas($config['relation'], self::activeSince($key, $from))
+                        ->count();
+                }
+            }
+            foreach ($since as $name => $from) {
+                $stats['all'][$name] = User::RemoveTestUser()
+                    ->where(function ($query) use ($from) {
+                        foreach (self::PRODUCTS as $key => $config) {
+                            $query->orWhereHas($config['relation'], self::activeSince($key, $from));
+                        }
+                    })
+                    ->count();
+            }
+            return $stats;
+        });
+    }
+
+    private static function activeSince($product, $from)
+    {
+        $column = self::ACTIVITY_COLUMNS[$product] ?? 'created_at';
+        return function ($q) use ($column, $from) {
+            $q->where($q->getModel()->qualifyColumn($column), '>=', $from);
+        };
     }
 
     /**

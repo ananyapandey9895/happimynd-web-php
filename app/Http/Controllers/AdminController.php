@@ -203,6 +203,8 @@ class AdminController extends Controller
         $productUsage = UserProductService::dashboardBreakdown();
         // New users in the last 24 hours / 7 days, overall and per service
         $newUserStats = UserProductService::newUserStats();
+        // Users who used each product in the last day / week / month / year
+        $activeUserStats = UserProductService::activeUserStats();
         // $tokenCount = Token::whereHas('organization', function ($query) {
         //     $query->removeTestOrganization();
         // })->get()->count();
@@ -243,6 +245,7 @@ class AdminController extends Controller
             ->with('b2bCodeStats', $b2bCodeStats)
             ->with('productUsage', $productUsage)
             ->with('newUserStats', $newUserStats)
+            ->with('activeUserStats', $activeUserStats)
             ->with('session_Details' , $session_Details);
     }
     public function addAdminUser(AdminUserDetailRequest $request)
