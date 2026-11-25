@@ -60,7 +60,7 @@
         <link href="{{ asset('assets/Backend/css/plugins/fixedHeader.bootstrap.min.css') }}" rel="stylesheet">
         <link href="{{ asset('assets/Backend/css/plugins/responsive.bootstrap.min.css') }}" rel="stylesheet">
         <!-- HappiMynd admin theme (after the template CSS so it wins) -->
-        <link href="{{ asset('assets/Backend/css/admin-theme.css') }}?v=1" rel="stylesheet">
+        <link href="{{ asset('assets/Backend/css/admin-theme.css') }}?v=2" rel="stylesheet">
 
         {{ $css ?? '' }}
         <style>
@@ -208,7 +208,7 @@
         </script>
         <script src="{{ asset('assets/Backend/js/plugins/fastclick.js') }}"></script>
         {{-- The DataTables / PDF / Excel plugins used to be loaded a second time here (~2 MB extra per page). They are all loaded once above. --}}
-        <script src="{{ asset('assets/Backend/js/admin-ux.js') }}?v=1"></script>
+        <script src="{{ asset('assets/Backend/js/admin-ux.js') }}?v=2"></script>
         {{ $js ?? '' }}
     </body>
 </html>

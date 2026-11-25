@@ -439,3 +439,7 @@ code.hm-key { display: inline-block; margin-top: 4px; font-size: 11px; }
   .right_col { overflow-x: hidden; }
   .x_title .pull-right { float: none !important; display: inline-block; margin-top: 6px; }
 }
+
+/* Keep the last menu item clear of the fixed "Log out" bar at the bottom */
+.left_col .main_menu_side { padding-bottom: 72px; }
+.sidebar-footer { z-index: 1000; }

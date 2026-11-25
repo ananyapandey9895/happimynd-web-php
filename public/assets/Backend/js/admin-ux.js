@@ -115,7 +115,7 @@
         $btn.addClass('hm-busy').attr('aria-busy', 'true');
         if ($btn.is('button')) {
           $btn.data('hm-html', $btn.html());
-          $btn.html('<span class="hm-spinner" aria-hidden="true"></span>' + ($btn.data('busy-text') || 'Saving…'));
+          $btn.html('<span class="hm-spinner" aria-hidden="true"></span>' + ($btn.data('busy-text') || 'Please wait…'));
         }
         // downloads (exports) keep the page open, so give the button back
         setTimeout(function () {
