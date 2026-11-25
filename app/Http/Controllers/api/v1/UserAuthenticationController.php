@@ -269,11 +269,9 @@ class UserAuthenticationController extends Controller
                 $check_referral_code_valid = User::where('refer_code',$referral_code)->first();
                 if($check_referral_code_valid){
                     $formData['from_refer_code'] =  $referral_code;
-                    $reward_points = RewardPointInstance::where('action_performed' , 'When share app')->first();
-                    $points_to_be_added_to_user = $reward_points->points_to_be_given;
                     $user_id = $check_referral_code_valid->id;
                     $task_performed = 'Friend download from referral';
-                    $this->rewardPointToUser()->addRewardToUser($user_id , $points_to_be_added_to_user , $task_performed);
+                    $this->rewardPointToUser()->awardByKey($user_id, 'app_shared', $task_performed);
                     
                     // $reward_data = [
                     //     'user_id' => $check_referral_code_valid->id,
@@ -607,11 +605,9 @@ Help us keep you safe. Tell us if you signed in from another device😵🤯😨 
             }else{
 
                 if($user->email == null){
-                    $reward_points = RewardPointInstance::where('action_performed' , 'When gives email ID')->first();
-                    $points_to_be_added_to_user = $reward_points->points_to_be_given;
                     $user_id = $user->id;
                     $task_performed = 'Gives email ID';
-                    $this->rewardPointToUser()->addRewardToUser($user_id , $points_to_be_added_to_user , $task_performed);
+                    $this->rewardPointToUser()->awardByKey($user_id, 'email_added', $task_performed);
 
                     // $reward_data = [
                     //     'user_id' => $user->id,
@@ -632,11 +628,9 @@ Help us keep you safe. Tell us if you signed in from another device😵🤯😨 
             }else{
 
                 if($user->mobile == null){
-                    $reward_points = RewardPointInstance::where('action_performed' , 'When gives phone number')->first();
-                    $points_to_be_added_to_user = $reward_points->points_to_be_given;
                     $user_id = $user->id;
                     $task_performed = 'Gives phone number';
-                    $this->rewardPointToUser()->addRewardToUser($user_id , $points_to_be_added_to_user , $task_performed);
+                    $this->rewardPointToUser()->awardByKey($user_id, 'phone_added', $task_performed);
 
                     // $reward_data = [
                     //     'user_id' => $user->id,
@@ -700,11 +694,9 @@ Help us keep you safe. Tell us if you signed in from another device😵🤯😨 
         }else{
 
             if($user->email == null){
-                $reward_points = RewardPointInstance::where('action_performed' , 'When gives email ID')->first();
-                $points_to_be_added_to_user = $reward_points->points_to_be_given;
                 $user_id = $user->id;
                 $task_performed = 'Gives email ID';
-                $this->rewardPointToUser()->addRewardToUser($user_id , $points_to_be_added_to_user , $task_performed);
+                $this->rewardPointToUser()->awardByKey($user_id, 'email_added', $task_performed);
 
             }
 
@@ -903,11 +895,9 @@ Help us keep you safe. Tell us if you signed in from another device😵🤯😨 
         // Only add reward points if there's no incomplete assessment
         // This prevents creating a new assessment right after completion
         if (!$hasIncompleteAssessment) {
-            $reward_points = RewardPointInstance::where('action_performed', 'When HappiLIFE Assessment is taken up')->first();
-            $points_to_be_added_to_user = $reward_points->points_to_be_given;
             $user_id = $user->id;
             $task_performed = 'Complete HappiLIFE screening';
-            $this->rewardPointToUser()->addRewardToUser($user_id, $points_to_be_added_to_user, $task_performed);
+            $this->rewardPointToUser()->awardByKey($user_id, 'happilife_completed', $task_performed);
         }
 
         return response()->json(['status' => 'success', "message" => "Screening has been completed successfully."]);
@@ -1584,11 +1574,9 @@ Help us keep you safe. Tell us if you signed in from another device😵🤯😨 
 
         $is_already_gave_feedback = Feedback::where('user_id' , $user->id)->first();
         if(!$is_already_gave_feedback){
-            $reward_points = RewardPointInstance::where('action_performed' , 'When feedback is shared')->first();
-            $points_to_be_added_to_user = $reward_points->points_to_be_given;
             $user_id = $user->id;
             $task_performed = 'feedback is shared';
-            $this->rewardPointToUser()->addRewardToUser($user_id , $points_to_be_added_to_user , $task_performed);
+            $this->rewardPointToUser()->awardByKey($user_id, 'feedback_shared', $task_performed);
 
             // $reward_data = [
             //     'user_id' => $user->id,
@@ -1681,11 +1669,9 @@ Help us keep you safe. Tell us if you signed in from another device😵🤯😨 
         UserMood::create($data);
 
 
-        $reward_points = RewardPointInstance::where('action_performed' , 'When punch in Mood in Mood O meter')->first();
-        $points_to_be_added_to_user = $reward_points->points_to_be_given;
         $user_id = $user->id;
         $task_performed = 'Punch in mood O meter';
-        $this->rewardPointToUser()->addRewardToUser($user_id , $points_to_be_added_to_user , $task_performed);
+        $this->rewardPointToUser()->awardByKey($user_id, 'mood_meter', $task_performed);
 
         // $reward_data = [
         //     'user_id' => $user->id,
@@ -1735,8 +1721,34 @@ Help us keep you safe. Tell us if you signed in from another device😵🤯😨 
 
 
     public function rewardInstancesList(Request $request){
-        $list = RewardPointInstance::get();
+        // switched-off and 0-point rewards are hidden from the app's "how to earn" list
+        $list = RewardPointInstance::where('is_active', true)->where('points_to_be_given', '>', 0)->orderBy('id')->get();
         return response()->json(['status' => 'success' , 'message' => 'Reward instance get successfully.' , 'list' => $list]);
+    }
+
+    /**
+     * An app / website / service reports that the user did something worth points.
+     * Only rewards an admin marked "Reported by app" can be claimed here, and each
+     * is limited by its frequency (once a day / only once), so points cannot be farmed.
+     * POST key=<reward key>
+     */
+    public function earnRewardPoints(Request $request){
+        $key = (string) $request->input('key');
+        $reward = $key !== '' ? RewardPointInstance::findByKey($key) : null;
+        if (!$reward || !$reward->is_active || $reward->awarded_by !== RewardPointInstance::BY_APP) {
+            return response()->json(['status' => 'error', 'message' => 'This reward is not available.'], 404);
+        }
+
+        $user = Auth::user();
+        $points = $this->rewardPointToUser()->awardByKey($user->id, $reward->key);
+        $total = UserRewardPointRecord::where('user_id', $user->id)->sum('points_earned');
+
+        return response()->json([
+            'status' => 'success',
+            'message' => $points > 0 ? 'Reward points added.' : 'No points added (already earned or 0 points).',
+            'points_earned' => $points,
+            'total_reward_points' => $total,
+        ]);
     }
 
 

@@ -432,6 +432,7 @@ Route::prefix('admin')->name('admin.')->middleware(['jwt.verify:admin'])->group(
 
     Route::get('/list/reward-points-instance', [AdminController::class, 'getRewardPointsInstanceList'])->name('getRewardPointsInstanceList');
     Route::match(['GET' , 'POST'] , '/list/edit-reward-points/{id}', [AdminController::class, 'getEditRewardPointsList'])->name('getEditRewardPointsList');
+    Route::match(['GET' , 'POST'] , '/list/add-reward-points', [AdminController::class, 'addRewardPoints'])->name('addRewardPoints');
 
 
     Route::get('/list/admins', [AdminController::class, 'getAdminList'])->name('adminListView');

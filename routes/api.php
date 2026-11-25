@@ -181,6 +181,7 @@ Route::group(['prefix' => 'v1',  'namespace' => 'api\v1'], function () {
         Route::match(['GET' , 'POST'],'user-mood', [UserAuthenticationController::class,'userMood']);
 
         Route::match(['GET' , 'POST'],'total-reward-points-user', [UserAuthenticationController::class,'totalRewardPointsUser']);
+        Route::post('earn-reward-points', [UserAuthenticationController::class,'earnRewardPoints']);
 
 
         //Payment
